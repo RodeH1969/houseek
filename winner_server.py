@@ -1,10 +1,10 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from datetime import datetime
 import os
 import re
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 CORS(app)
 
 # Acceptable address variants
@@ -60,6 +60,10 @@ def log_guess():
     with open("winners/guesses.txt", "a") as f:
         f.write(f"{datetime.now()} - {guess}\n")
     return jsonify({"status": "logged"})
+
+@app.route('/')
+def serve_index():
+    return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5001, debug=True)
