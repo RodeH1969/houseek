@@ -9,7 +9,7 @@ CORS(app)
 
 # Acceptable address variants
 CORRECT_ADDRESS_VARIANTS = [
-    "37 Yoku Rd Ashgrove",
+    "37 Yoku Road Ashgrove",
     "37 Yoku Road, Ashgrove QLD, Australia"
 ]
 
@@ -59,8 +59,11 @@ def log_guess():
         f.write(f"{datetime.now()} - {guess}\n")
     return jsonify({"status": "logged"})
 
-@app.route('/')
-def serve_index():
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_index(path):
+    if path and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == "__main__":
