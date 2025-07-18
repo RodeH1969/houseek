@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Houseek</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .animate-balloon {
+      animation: float 6s ease-in-out forwards;
+    }
+    @keyframes float {
+      0% { transform: translateY(100vh); opacity: 1; }
+      100% { transform: translateY(-100vh); opacity: 0; }
+    }
+    #terms {
+      font-size: 0.75rem;
+      line-height: 1.2rem;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans">
+  <div class="container mx-auto p-4 max-w-4xl">
+    <div class="flex justify-center mb-4">
+      <img src="houseek.png" alt="Houseek Logo" class="w-48 h-auto">
+    </div>
+
+    <h1 class="text-2xl sm:text-4xl font-extrabold text-center text-blue-700 mb-2">Know this Brisbane house?</h1>
+    <p class="text-lg text-center text-gray-700 mb-4">Be the 1st to submit the exact address and win a $20 Dan Murphy's gift card!</p>
+
+    <div class="mb-4">
+      <picture>
+        <source media="(max-width: 640px)" srcset="house_mobile.png">
+        <img id="houseImage" src="house1.png" alt="Daily House" class="w-full h-auto object-contain rounded">
+      </picture>
+    </div>
+
+    <form id="guessForm" class="mb-4 p-4 rounded transition-colors duration-300 bg-gray-100" autocomplete="off">
+      <input type="text" id="fullAddress" placeholder="Enter full address" class="w-full p-2 border rounded mb-2">
+      <div class="flex items-center justify-center space-x-2">
+        <button type="submit" class="bg-blue-500 text-white p-2 rounded">Submit exact address</button>
+      </div>
+    </form>
+
+    <div id="feedback" class="mb-4 text-center font-semibold"></div>
+
+    <div id="winnerModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white p-6 rounded text-center w-80 relative">
+        <h2 class="text-2xl font-bold mb-2">🎉 Winner! 🎉</h2>
+        <p class="mb-4">Enter your details for the $20 Dan Murphy's gift card.</p>
+        <input type="text" id="winnerName" placeholder="Your Name" class="p-2 border rounded mb-2 w-full">
+        <input type="tel" id="winnerMobile" placeholder="Mobile Number" class="p-2 border rounded mb-2 w-full">
+        <label class="block text-left text-sm mb-2">
+          <input type="checkbox" id="ageConfirm" class="mr-1"> I confirm I am over 18 years of age.
+        </label>
+        <button id="submitWinner" class="bg-green-500 text-white p-2 rounded w-full">Claim Prize</button>
+        <p id="terms" class="text-gray-500 mt-2">By claiming your prize, you consent to your entry being stored for prize administration.</p>
+      </div>
+    </div>
+
+    <h2 class="text-2xl font-bold mb-4">Previous Houses & Winners</h2>
+    <div id="previousHouses" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+  </div>
+
+  <div id="thumbnailPopup" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="relative bg-white p-4 rounded">
+      <button id="closePopup" class="absolute top-2 right-2 text-xl font-bold">×</button>
+      <img id="popupImage" src="" alt="Expanded House" class="w-full max-w-lg h-auto object-contain rounded">
+    </div>
+  </div>
+
+  <script>
+    const previousHouses = [
+      { image: "winner1.png", label: "Game #2", date: "17 July 2025" },
+      { image: "winner2.png", label: "Game #1", date: "16 July 2025" }
+    ];
+
+    document.getElementById("guessForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("fullAddress");
+      const value = input.value.trim();
+      const feedbackEl = document.getElementById("feedback");
+
+      const response = await fetch("http://127.0.0.1:5001/submit-winner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: value, name: "", over18: true })
+      });
+
+      const result = await response.json();
+
+      if (result.status === "correct" || result.status === "missing_info") {
+        feedbackEl.innerHTML = "✅ Correct! You're a winner!";
+        document.getElementById("winnerModal").classList.remove("hidden");
+        triggerBalloons();
+        triggerConfetti();
+        playCelebration();
+      } else {
+        feedbackEl.innerHTML = "❌ Incorrect. Try again tomorrow!";
+        fetch("http://127.0.0.1:5001/log-guess", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ guess: value })
+        });
+      }
+    });
+
+    document.getElementById("submitWinner").addEventListener("click", () => {
+      const name = document.getElementById("winnerName").value.trim();
+      const mobile = document.getElementById("winnerMobile").value.trim();
+      const address = document.getElementById("fullAddress").value.trim();
+      const ageConfirm = document.getElementById("ageConfirm").checked;
+
+      if (!name || !mobile || !ageConfirm) {
+        alert("Please enter all details and confirm you are over 18.");
+        return;
+      }
+
+      fetch("http://127.0.0.1:5001/submit-winner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, mobile, address, over18: true })
+      })
+      .then(res => res.json())
+      .then(() => {
+        document.getElementById("winnerModal").classList.add("hidden");
+        document.getElementById("feedback").innerText = "🎁 Prize claimed! We'll be in touch.";
+      });
+    });
+
+    function triggerBalloons() {
+      for (let i = 0; i < 500; i++) {
+        const balloon = document.createElement("div");
+        balloon.className = "absolute bg-red-400 rounded-full animate-balloon z-40";
+        balloon.style.width = "100px";   // 10x bigger
+        balloon.style.height = "100px";  // 10x bigger
+        balloon.style.left = Math.random() * 100 + "vw";
+        balloon.style.animationDelay = Math.random() * 3 + "s";
+        document.body.appendChild(balloon);
+        setTimeout(() => balloon.remove(), 6000);
+      }
+    }
+
+    function triggerConfetti() {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
+      script.onload = () => {
+        confetti({ particleCount: 2000, spread: 160 }); // 10x more confetti
+      };
+      document.body.appendChild(script);
+    }
+
+    function playCelebration() {
+      const audio = new Audio("$20.png"); // Replace with actual sound file path
+      audio.play().catch(() => {});
+    }
+
+    const grid = document.getElementById("previousHouses");
+    previousHouses.forEach(house => {
+      const div = document.createElement("div");
+      div.className = "relative cursor-pointer";
+      div.innerHTML = `
+        <img src="${house.image}" alt="House" class="w-full h-32 object-cover rounded">
+        <div class="absolute bottom-0 bg-black bg-opacity-50 text-white text-xs font-bold p-1 w-full text-center">
+          ${house.label} (${house.date})
+        </div>
+      `;
+      div.addEventListener("click", () => {
+        document.getElementById("popupImage").src = house.image;
+        document.getElementById("thumbnailPopup").classList.remove("hidden");
+      });
+      grid.appendChild(div);
+    });
+
+    document.getElementById("closePopup").addEventListener("click", () => {
+      document.getElementById("thumbnailPopup").classList.add("hidden");
+    });
+
+    function initAutocomplete() {
+      const input = document.getElementById("fullAddress");
+      new google.maps.places.Autocomplete(input, { componentRestrictions: { country: "au" } });
+    }
+  </script>
+
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJoyvCd3fWMnk0O5wWY3pH98n2wkKCCxc&libraries=places&callback=initAutocomplete"></script>
+</body>
+</html>
