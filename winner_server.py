@@ -18,7 +18,11 @@ def normalize_address(addr):
     addr = addr.lower()
     addr = re.sub(r'[^\w\s]', '', addr)  # remove punctuation
     addr = re.sub(r'\s+', ' ', addr)  # collapse multiple spaces
-    return addr.strip()
+    addr = addr.strip()
+    # Log normalized address for debugging
+    with open("winners/normalized_log.txt", "a") as f:
+        f.write(f"{datetime.now()} - Input: {addr} - Normalized: {addr}\n")
+    return addr
 
 @app.route("/submit-winner", methods=["POST"])
 def submit_winner():
@@ -35,6 +39,10 @@ def submit_winner():
 
     norm_input = normalize_address(address)
     norm_variants = [normalize_address(a) for a in CORRECT_ADDRESS_VARIANTS]
+
+    # Log comparison for debugging
+    with open("winners/comparison_log.txt", "a") as f:
+        f.write(f"{datetime.now()} - Input: {norm_input} - Variants: {norm_variants}\n")
 
     if norm_input not in norm_variants:
         return jsonify({"status": "incorrect"})
