@@ -64,5 +64,7 @@ def log_guess():
 
     return jsonify({"status": "logged"})
 
+# ✅ Render-compatible: bind to 0.0.0.0 and use dynamic port
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=True)
