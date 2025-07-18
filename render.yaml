@@ -1,8 +1,7 @@
 services:
   - type: web
-    name: houseek-backend
+    name: houseek
     env: python
     buildCommand: ""
-    startCommand: python winner_server.py
-    autoDeploy: true
+    startCommand: "python winner_server.py"
     plan: free
