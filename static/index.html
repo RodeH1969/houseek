@@ -70,19 +70,25 @@
   </div>
 
   <script>
-    const correctAddress = "37 Yoku Road Ashgrove";
     const previousHouses = [
       { image: "/static/winner1.png", label: "Game #2", date: "17 July 2025" },
       { image: "/static/winner2.png", label: "Game #1", date: "16 July 2025" }
     ];
 
-    document.getElementById("guessForm").addEventListener("submit", (e) => {
+    document.getElementById("guessForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const input = document.getElementById("fullAddress");
       const value = input.value.trim();
-
       const feedbackEl = document.getElementById("feedback");
-      if (value.toLowerCase() === correctAddress.toLowerCase()) {
+
+      const response = await fetch("/submit-winner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: value })
+      });
+      const result = await response.json();
+
+      if (result.status === "correct") {
         feedbackEl.innerHTML = "✅ Correct! You're a winner!";
         document.getElementById("winnerModal").classList.remove("hidden");
         triggerBalloons();
@@ -146,7 +152,7 @@
     }
 
     function playCelebration() {
-      const audio = new Audio("/static/celebration.mp3"); // ensure this file is in static/
+      const audio = new Audio("/static/celebration.mp3");
       audio.play().catch(() => {});
     }
 
