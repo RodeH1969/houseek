@@ -13,11 +13,10 @@ CORRECT_ADDRESS_VARIANTS = [
     "37 Yoku Road, Ashgrove QLD, Australia"
 ]
 
-# Normalize address: lowercase, strip commas, "road" -> "rd", extra spaces
+# Normalize address: lowercase, strip punctuation, extra spaces
 def normalize_address(addr):
     addr = addr.lower()
     addr = re.sub(r'[^\w\s]', '', addr)  # remove punctuation
-    addr = addr.replace("road", "rd")
     addr = re.sub(r'\s+', ' ', addr)  # collapse multiple spaces
     return addr.strip()
 
