@@ -1,42 +1,39 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime
 import os
+import re
 
-app = Flask(__name__, static_folder="static")
-CORS(app, resources={r"/*": {"origins": "*"}})
+app = Flask(__name__)
+CORS(app)
 
+# Acceptable address variants
 CORRECT_ADDRESS_VARIANTS = [
-    "37 Yoku Road Ashgrove", "37 Yoku Road, Ashgrove", "37 Yoku Rd Ashgrove", "37 Yoku Rd, Ashgrove",
-    "37 Yoku Road Ashgrove QLD", "37 Yoku Road, Ashgrove QLD", "37 Yoku Rd, Ashgrove QLD", "37 Yoku Rd Ashgrove QLD",
-    "37 Yoku Road Ashgrove QLD Australia", "37 Yoku Road, Ashgrove QLD, Australia",
-    "37 Yoku Rd, Ashgrove QLD, Australia", "37 Yoku Rd Ashgrove QLD Australia"
+    "37 Yoku Rd Ashgrove"
 ]
 
+# Normalize address: lowercase, strip commas, qld, australia, "road" -> "rd", extra spaces
 def normalize_address(addr):
-    return addr.lower().replace(",", "").replace("road", "rd").strip()
-
-@app.route("/")
-def serve_index():
-    return send_from_directory(app.static_folder, "index.html")
+    addr = addr.lower()
+    addr = re.sub(r'[^\w\s]', '', addr)  # remove punctuation
+    addr = addr.replace("road", "rd")
+    addr = addr.replace("qld", "")
+    addr = addr.replace("australia", "")
+    addr = re.sub(r'\s+', ' ', addr)  # collapse multiple spaces
+    return addr.strip()
 
 @app.route("/submit-winner", methods=["POST"])
 def submit_winner():
     data = request.json
     address = data.get("address", "").strip()
     name = data.get("name", "").strip()
-    over18 = data.get("over18", False)
+    mobile = data.get("mobile", "").strip()
+    over18 = data.get("over18", True)
 
+    # Log attempt
     os.makedirs("winners", exist_ok=True)
     with open("winners/address_attempts.txt", "a") as f:
         f.write(f"{datetime.now()} - {name} - {address}\n")
-
-    if not name or not over18:
-        norm_input = normalize_address(address)
-        norm_variants = [normalize_address(a) for a in CORRECT_ADDRESS_VARIANTS]
-        if norm_input in norm_variants:
-            return jsonify({"status": "missing_info"})
-        return jsonify({"status": "incorrect"})
 
     norm_input = normalize_address(address)
     norm_variants = [normalize_address(a) for a in CORRECT_ADDRESS_VARIANTS]
@@ -44,27 +41,25 @@ def submit_winner():
     if norm_input not in norm_variants:
         return jsonify({"status": "incorrect"})
 
+    if not name or not mobile or not over18:
+        return jsonify({"status": "missing_info"})
+
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     winner_filename = f"winners/winner-{timestamp}.txt"
     with open(winner_filename, "w") as f:
-        f.write(f"Winner: {name}\nAddress: {address}\nTime: {timestamp}\n")
+        f.write(f"Winner: {name}\nMobile: {mobile}\nAddress: {address}\nTime: {timestamp}\n")
     with open("winners/winners.txt", "a") as f:
-        f.write(f"{name} - {address} - {timestamp}\n")
+        f.write(f"{name} - {mobile} - {address} - {timestamp}\n")
 
     return jsonify({"status": "correct"})
 
 @app.route("/log-guess", methods=["POST"])
 def log_guess():
     data = request.json
-    guess = data.get("guess", "").strip()
-
-    os.makedirs("winners", exist_ok=True)
+    guess = data.get("guess", "")
     with open("winners/guesses.txt", "a") as f:
         f.write(f"{datetime.now()} - {guess}\n")
-
     return jsonify({"status": "logged"})
 
-# ✅ Render-compatible: bind to 0.0.0.0 and use dynamic port
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5001))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(debug=True, port=5001)
