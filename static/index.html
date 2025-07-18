@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Houseek</title>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -22,7 +22,7 @@
 <body class="bg-gray-100 font-sans">
   <div class="container mx-auto p-4 max-w-4xl">
     <div class="flex justify-center mb-4">
-      <img src="houseek.png" alt="Houseek Logo" class="w-48 h-auto">
+      <img src="/static/houseek.png" alt="Houseek Logo" class="w-48 h-auto">
     </div>
 
     <h1 class="text-2xl sm:text-4xl font-extrabold text-center text-blue-700 mb-2">Know this Brisbane house?</h1>
@@ -30,8 +30,8 @@
 
     <div class="mb-4">
       <picture>
-        <source media="(max-width: 640px)" srcset="house_mobile.png">
-        <img id="houseImage" src="house1.png" alt="Daily House" class="w-full h-auto object-contain rounded">
+        <source media="(max-width: 640px)" srcset="/static/house_mobile.png">
+        <img id="houseImage" src="/static/house1.png" alt="Daily House" class="w-full h-auto object-contain rounded">
       </picture>
     </div>
 
@@ -70,26 +70,19 @@
   </div>
 
   <script>
+    const correctAddress = "37 Yoku Road Ashgrove";
     const previousHouses = [
-      { image: "winner1.png", label: "Game #2", date: "17 July 2025" },
-      { image: "winner2.png", label: "Game #1", date: "16 July 2025" }
+      { image: "/static/winner1.png", label: "Game #2", date: "17 July 2025" },
+      { image: "/static/winner2.png", label: "Game #1", date: "16 July 2025" }
     ];
 
-    document.getElementById("guessForm").addEventListener("submit", async (e) => {
+    document.getElementById("guessForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const input = document.getElementById("fullAddress");
       const value = input.value.trim();
+
       const feedbackEl = document.getElementById("feedback");
-
-      const response = await fetch("http://127.0.0.1:5001/submit-winner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: value, name: "", over18: true })
-      });
-
-      const result = await response.json();
-
-      if (result.status === "correct" || result.status === "missing_info") {
+      if (value.toLowerCase() === correctAddress.toLowerCase()) {
         feedbackEl.innerHTML = "✅ Correct! You're a winner!";
         document.getElementById("winnerModal").classList.remove("hidden");
         triggerBalloons();
@@ -97,7 +90,7 @@
         playCelebration();
       } else {
         feedbackEl.innerHTML = "❌ Incorrect. Try again tomorrow!";
-        fetch("http://127.0.0.1:5001/log-guess", {
+        fetch("/log-guess", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ guess: value })
@@ -116,10 +109,10 @@
         return;
       }
 
-      fetch("http://127.0.0.1:5001/submit-winner", {
+      fetch("/submit-winner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, mobile, address, over18: true })
+        body: JSON.stringify({ name, mobile, address, over18: ageConfirm })
       })
       .then(res => res.json())
       .then(() => {
@@ -131,9 +124,7 @@
     function triggerBalloons() {
       for (let i = 0; i < 500; i++) {
         const balloon = document.createElement("div");
-        balloon.className = "absolute bg-red-400 rounded-full animate-balloon z-40";
-        balloon.style.width = "100px";   // 10x bigger
-        balloon.style.height = "100px";  // 10x bigger
+        balloon.className = "absolute w-40 h-40 bg-red-400 rounded-full animate-balloon z-40";
         balloon.style.left = Math.random() * 100 + "vw";
         balloon.style.animationDelay = Math.random() * 3 + "s";
         document.body.appendChild(balloon);
@@ -145,13 +136,17 @@
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
       script.onload = () => {
-        confetti({ particleCount: 2000, spread: 160 }); // 10x more confetti
+        confetti({
+          particleCount: 2000,
+          spread: 160,
+          origin: { y: 0.6 }
+        });
       };
       document.body.appendChild(script);
     }
 
     function playCelebration() {
-      const audio = new Audio("$20.png"); // Replace with actual sound file path
+      const audio = new Audio("/static/celebration.mp3"); // ensure this file is in static/
       audio.play().catch(() => {});
     }
 
