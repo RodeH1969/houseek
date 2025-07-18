@@ -9,16 +9,15 @@ CORS(app)
 
 # Acceptable address variants
 CORRECT_ADDRESS_VARIANTS = [
-    "37 Yoku Rd Ashgrove"
+    "37 Yoku Rd Ashgrove",
+    "37 Yoku Road, Ashgrove QLD, Australia"
 ]
 
-# Normalize address: lowercase, strip commas, qld, australia, "road" -> "rd", extra spaces
+# Normalize address: lowercase, strip commas, "road" -> "rd", extra spaces
 def normalize_address(addr):
     addr = addr.lower()
     addr = re.sub(r'[^\w\s]', '', addr)  # remove punctuation
     addr = addr.replace("road", "rd")
-    addr = addr.replace("qld", "")
-    addr = addr.replace("australia", "")
     addr = re.sub(r'\s+', ' ', addr)  # collapse multiple spaces
     return addr.strip()
 
