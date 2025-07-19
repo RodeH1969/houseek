@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Houseek</title>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -13,10 +13,7 @@
       0% { transform: translateY(100vh); opacity: 1; }
       100% { transform: translateY(-100vh); opacity: 0; }
     }
-    #terms {
-      font-size: 0.75rem;
-      line-height: 1.2rem;
-    }
+    #terms { font-size: 0.75rem; line-height: 1.2rem; }
   </style>
 </head>
 <body class="bg-gray-100 font-sans">
@@ -38,7 +35,7 @@
     <form id="guessForm" class="mb-4 p-4 rounded transition-colors duration-300 bg-gray-100" autocomplete="off">
       <input type="text" id="fullAddress" placeholder="Enter full address" class="w-full p-2 border rounded mb-2">
       <div class="flex items-center justify-center space-x-2">
-        <button type="submit" class="bg-blue-500 text-white p-2 rounded">Submit exact address</button>
+        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Submit exact address</button>
       </div>
     </form>
 
@@ -53,7 +50,7 @@
         <label class="block text-left text-sm mb-2">
           <input type="checkbox" id="ageConfirm" class="mr-1"> I confirm I am over 18 years of age.
         </label>
-        <button id="submitWinner" class="bg-green-500 text-white p-2 rounded w-full">Claim Prize</button>
+        <button id="submitWinner" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded w-full">Claim Prize</button>
         <p id="terms" class="text-gray-500 mt-2">By claiming your prize, you consent to your entry being stored for prize administration.</p>
       </div>
     </div>
@@ -81,30 +78,32 @@
       const value = input.value.trim();
       const feedbackEl = document.getElementById("feedback");
 
-      const response = await fetch("/submit-winner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: value })
-      });
-      const result = await response.json();
-
-      if (result.status === "correct") {
-        feedbackEl.innerHTML = "✅ Correct! You're a winner!";
-        document.getElementById("winnerModal").classList.remove("hidden");
-        triggerBalloons();
-        triggerConfetti();
-        playCelebration();
-      } else {
-        feedbackEl.innerHTML = "❌ Incorrect. Try again tomorrow!";
-        fetch("/log-guess", {
+      try {
+        const response = await fetch("/submit-winner", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guess: value })
+          body: JSON.stringify({ address: value })
         });
+        const result = await response.json();
+
+        if (result.status === "correct") {
+          feedbackEl.textContent = "✅ Correct! You're a winner!";
+          feedbackEl.className = "mb-4 text-center font-semibold text-green-600";
+          document.getElementById("winnerModal").classList.remove("hidden");
+          triggerCelebration();
+        } else {
+          feedbackEl.textContent = "❌ Incorrect. Try again tomorrow!";
+          feedbackEl.className = "mb-4 text-center font-semibold text-red-600";
+          console.log("Debug info:", result.debug);
+        }
+      } catch (error) {
+        feedbackEl.textContent = "⚠️ Error submitting. Please try again.";
+        feedbackEl.className = "mb-4 text-center font-semibold text-yellow-600";
+        console.error("Submission error:", error);
       }
     });
 
-    document.getElementById("submitWinner").addEventListener("click", () => {
+    document.getElementById("submitWinner").addEventListener("click", async () => {
       const name = document.getElementById("winnerName").value.trim();
       const mobile = document.getElementById("winnerMobile").value.trim();
       const address = document.getElementById("fullAddress").value.trim();
@@ -115,51 +114,68 @@
         return;
       }
 
-      fetch("/submit-winner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, mobile, address, over18: ageConfirm })
-      })
-      .then(res => res.json())
-      .then(() => {
-        document.getElementById("winnerModal").classList.add("hidden");
-        document.getElementById("feedback").innerText = "🎁 Prize claimed! We'll be in touch.";
-      });
+      try {
+        const response = await fetch("/submit-winner", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            name, 
+            mobile, 
+            address, 
+            over18: ageConfirm 
+          })
+        });
+        
+        if (response.ok) {
+          document.getElementById("winnerModal").classList.add("hidden");
+          document.getElementById("feedback").textContent = "🎁 Prize claimed! We'll be in touch.";
+        }
+      } catch (error) {
+        alert("Error submitting details. Please try again.");
+        console.error("Error:", error);
+      }
     });
 
-    function triggerBalloons() {
-      for (let i = 0; i < 500; i++) {
+    function triggerCelebration() {
+      // Balloons
+      for (let i = 0; i < 30; i++) {
         const balloon = document.createElement("div");
-        balloon.className = "absolute w-40 h-40 bg-red-400 rounded-full animate-balloon z-40";
+        balloon.className = "fixed w-8 h-8 rounded-full animate-balloon z-40";
+        balloon.style.backgroundColor = getRandomColor();
         balloon.style.left = Math.random() * 100 + "vw";
         balloon.style.animationDelay = Math.random() * 3 + "s";
         document.body.appendChild(balloon);
         setTimeout(() => balloon.remove(), 6000);
       }
-    }
 
-    function triggerConfetti() {
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
-      script.onload = () => {
+      // Confetti
+      const confettiScript = document.createElement("script");
+      confettiScript.src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
+      confettiScript.onload = () => {
         confetti({
-          particleCount: 2000,
-          spread: 160,
+          particleCount: 150,
+          spread: 70,
           origin: { y: 0.6 }
         });
       };
-      document.body.appendChild(script);
+      document.body.appendChild(confettiScript);
     }
 
-    function playCelebration() {
-      const audio = new Audio("/static/celebration.mp3");
-      audio.play().catch(() => {});
+    function getRandomColor() {
+      const colors = [
+        "#FF5252", "#FF4081", "#E040FB", "#7C4DFF", 
+        "#536DFE", "#448AFF", "#40C4FF", "#18FFFF", 
+        "#64FFDA", "#69F0AE", "#B2FF59", "#EEFF41", 
+        "#FFFF00", "#FFD740", "#FFAB40", "#FF6E40"
+      ];
+      return colors[Math.floor(Math.random() * colors.length)];
     }
 
+    // Previous houses gallery
     const grid = document.getElementById("previousHouses");
     previousHouses.forEach(house => {
       const div = document.createElement("div");
-      div.className = "relative cursor-pointer";
+      div.className = "relative cursor-pointer hover:scale-105 transition-transform";
       div.innerHTML = `
         <img src="${house.image}" alt="House" class="w-full h-32 object-cover rounded">
         <div class="absolute bottom-0 bg-black bg-opacity-50 text-white text-xs font-bold p-1 w-full text-center">
@@ -177,12 +193,23 @@
       document.getElementById("thumbnailPopup").classList.add("hidden");
     });
 
+    // Initialize Google Places Autocomplete
     function initAutocomplete() {
       const input = document.getElementById("fullAddress");
-      new google.maps.places.Autocomplete(input, { componentRestrictions: { country: "au" } });
+      if (window.google && window.google.maps) {
+        new google.maps.places.Autocomplete(input, { 
+          componentRestrictions: { country: "au" },
+          fields: ["formatted_address"]
+        });
+      }
     }
-  </script>
 
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJoyvCd3fWMnk0O5wWY3pH98n2wkKCCxc&libraries=places&callback=initAutocomplete"></script>
+    // Load Google Maps API
+    const script = document.createElement("script");
+    script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyBJoyvCd3fWMnk0O5wWY3pH98n2wkKCCxc&libraries=places&callback=initAutocomplete";
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  </script>
 </body>
 </html>

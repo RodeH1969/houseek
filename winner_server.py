@@ -3,76 +3,62 @@ from flask_cors import CORS
 from datetime import datetime
 import os
 import re
+import traceback
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
 
-# Acceptable address variants
-CORRECT_ADDRESS_VARIANTS = [
+# Enhanced address variants
+ADDRESS_VARIANTS = [
     "37 Yoku Road Ashgrove",
-    "37 Yoku Road, Ashgrove QLD, Australia"
+    "37 Yoku Road, Ashgrove QLD, Australia",
+    "37 Yoku Rd Ashgrove",
+    "37 Yoku Rd, Ashgrove",
+    "37 yoku road ashgrove",
+    "37 yoku rd ashgrove"
 ]
 
-# Normalize address: lowercase, strip punctuation, extra spaces
+# Pre-normalized versions
+CORRECT_ADDRESS_VARIANTS = []
+
 def normalize_address(addr):
-    addr = addr.lower()
-    addr = re.sub(r'[^\w\s]', '', addr)  # remove punctuation
-    addr = re.sub(r'\s+', ' ', addr)  # collapse multiple spaces
-    addr = addr.strip()
-    # Log normalized address for debugging
-    with open("winners/normalized_log.txt", "a") as f:
-        f.write(f"{datetime.now()} - Input: {addr} - Normalized: {addr}\n")
+    addr = addr.lower().strip()
+    addr = re.sub(r'[^\w\s]', '', addr)  # Remove punctuation
+    addr = re.sub(r'\s+', ' ', addr)     # Collapse spaces
     return addr
+
+# Initialize normalized variants
+CORRECT_ADDRESS_VARIANTS = [normalize_address(a) for a in ADDRESS_VARIANTS]
+
+def log_debug(info):
+    os.makedirs("winners", exist_ok=True)
+    with open("winners/debug_log.txt", "a") as f:
+        f.write(f"{datetime.now()} - {info}\n")
 
 @app.route("/submit-winner", methods=["POST"])
 def submit_winner():
-    data = request.json
-    address = data.get("address", "").strip()
-    name = data.get("name", "").strip()
-    mobile = data.get("mobile", "").strip()
-    over18 = data.get("over18", True)
+    try:
+        data = request.json
+        address = data.get("address", "").strip()
+        log_debug(f"Submission attempt: {address}")
+        
+        norm_input = normalize_address(address)
+        log_debug(f"Normalized input: {norm_input}")
+        
+        if norm_input in CORRECT_ADDRESS_VARIANTS:
+            log_debug("Address matched!")
+            return jsonify({"status": "correct"})
+        else:
+            log_debug(f"No match. Input: {norm_input} | Variants: {CORRECT_ADDRESS_VARIANTS}")
+            return jsonify({"status": "incorrect"})
+            
+    except Exception as e:
+        log_debug(f"Error: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"status": "error"})
 
-    # Log attempt
-    os.makedirs("winners", exist_ok=True)
-    with open("winners/address_attempts.txt", "a") as f:
-        f.write(f"{datetime.now()} - {name} - {address}\n")
-
-    norm_input = normalize_address(address)
-    norm_variants = [normalize_address(a) for a in CORRECT_ADDRESS_VARIANTS]
-
-    # Log comparison for debugging
-    with open("winners/comparison_log.txt", "a") as f:
-        f.write(f"{datetime.now()} - Input: {norm_input} - Variants: {norm_variants}\n")
-
-    if norm_input not in norm_variants:
-        return jsonify({"status": "incorrect"})
-
-    if not name or not mobile or not over18:
-        return jsonify({"status": "missing_info"})
-
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    winner_filename = f"winners/winner-{timestamp}.txt"
-    with open(winner_filename, "w") as f:
-        f.write(f"Winner: {name}\nMobile: {mobile}\nAddress: {address}\nTime: {timestamp}\n")
-    with open("winners/winners.txt", "a") as f:
-        f.write(f"{name} - {mobile} - {address} - {timestamp}\n")
-
-    return jsonify({"status": "correct"})
-
-@app.route("/log-guess", methods=["POST"])
-def log_guess():
-    data = request.json
-    guess = data.get("guess", "")
-    with open("winners/guesses.txt", "a") as f:
-        f.write(f"{datetime.now()} - {guess}\n")
-    return jsonify({"status": "logged"})
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_index(path):
-    if path and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
+@app.route("/")
+def serve():
+    return send_from_directory('static', 'index.html')
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5001)
