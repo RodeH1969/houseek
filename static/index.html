@@ -128,8 +128,11 @@
       try {
         const res = await fetch('/get-current-house');
         const data = await res.json();
-        document.getElementById('houseImage').src = `/static/houses/house${data.number}.png`;
-        document.getElementById('mobileHouseImage').srcset = `/static/houses/house${data.number}_mobile.png`;
+        
+        // Handle special house numbers (-1, 0) in the image paths
+        const houseNum = data.number;
+        document.getElementById('houseImage').src = `/static/houses/house${houseNum}.png`;
+        document.getElementById('mobileHouseImage').srcset = `/static/houses/house${houseNum}_mobile.png`;
       } catch (error) {
         console.error('Error loading current house:', error);
       }
@@ -236,26 +239,30 @@
       }
     });
 
-    // Fixed addWinnerCard function
-    function addWinnerCard(name, address, houseNumber, isExample = false) {
+    // Fixed addWinnerCard function with proper house number handling
+    function addWinnerCard(name, address, houseNumber, isExample = false, date = null) {
       const grid = document.getElementById("previousHouses");
+      if (!grid) return;
       
-      // Handle all house number cases correctly
+      // Handle special house numbers (-1, 0) and regular numbers
       let imageBase;
       if (houseNumber === -1) {
-        imageBase = "house-1"; // Special case 1
+        imageBase = "house-1";
       } else if (houseNumber === 0) {
-        imageBase = "house0";  // Special case 2
+        imageBase = "house0";
       } else {
-        imageBase = `house${houseNumber}`; // Normal houses (1-10)
+        imageBase = `house${houseNumber}`;
       }
 
+      // Check if mobile version exists
+      const mobileImg = `/static/houses/${imageBase}_mobile.png`;
+      
       const card = document.createElement("div");
       card.className = "winner-card relative cursor-pointer rounded-lg overflow-hidden shadow-md";
       
       card.innerHTML = `
         <picture>
-          <source media="(max-width: 640px)" srcset="/static/houses/${imageBase}_mobile.png">
+          <source media="(max-width: 640px)" srcset="${mobileImg}">
           <img src="/static/houses/${imageBase}.png" class="w-full h-32 sm:h-40 object-cover">
         </picture>
         <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-3 text-white">
@@ -271,7 +278,8 @@
         document.getElementById("popupImage").src = `/static/houses/${imageBase}.png`;
         document.getElementById("popupWinnerName").textContent = name;
         document.getElementById("popupAddress").textContent = address;
-        document.getElementById("popupDate").textContent = isExample ? "Example winner" : new Date().toLocaleDateString();
+        document.getElementById("popupDate").textContent = isExample ? "Example winner" : 
+          (date ? new Date(date).toLocaleDateString() : new Date().toLocaleDateString());
         document.getElementById("thumbnailPopup").classList.remove("hidden");
       });
       
@@ -320,29 +328,23 @@
         const response = await fetch("/get-winners");
         const winners = await response.json();
         
-        // Separate example and regular winners
-        const exampleWinners = winners.filter(w => w.isExample);
-        const regularWinners = winners.filter(w => !w.isExample);
+        // Clear existing winners (except examples if any)
+        const grid = document.getElementById("previousHouses");
+        if (grid) {
+          grid.innerHTML = '';
+        }
         
-        // Add example winners first
-        exampleWinners.forEach(winner => {
+        // Add all winners (sorted by date, newest first)
+        winners.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(winner => {
           addWinnerCard(
             winner.name, 
             winner.address, 
             winner.houseNumber,
-            true
+            winner.isExample || false,
+            winner.date
           );
         });
         
-        // Then add regular winners
-        regularWinners.forEach(winner => {
-          addWinnerCard(
-            winner.name, 
-            winner.address, 
-            winner.houseNumber,
-            false
-          );
-        });
       } catch (error) {
         console.error("Error loading winners:", error);
         // Fallback to showing just the example winners

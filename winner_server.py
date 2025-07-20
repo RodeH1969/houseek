@@ -7,7 +7,6 @@ import re
 import json
 import shutil
 
-# Initialize Flask app with correct static file handling
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
@@ -30,21 +29,15 @@ LOG_FILE = PERSISTENT_DIR / "winners.log"
 def init_storage():
     """Initialize all required directories and files"""
     try:
-        # Create necessary directories
         os.makedirs(PERSISTENT_DIR, exist_ok=True)
         os.makedirs(HOUSES_DIR, exist_ok=True)
         
-        # Initialize winners file if missing
         if not WINNERS_FILE.exists():
             with open(WINNERS_FILE, 'w') as f:
                 json.dump([], f)
         
-        # Create initial backup
-        shutil.copy2(WINNERS_FILE, BACKUP_FILE)
-        
-        # Verify static files exist
-        if not (BASE_DIR / "static/index.html").exists():
-            raise FileNotFoundError("index.html not found in static/")
+        if not CURRENT_HOUSE_FILE.exists():
+            CURRENT_HOUSE_FILE.write_text("1")
             
     except Exception as e:
         print(f"Initialization error: {str(e)}")
@@ -56,18 +49,13 @@ def init_storage():
 def save_winners(winners):
     """Save winners with crash protection"""
     try:
-        # 1. Write to temp file
         temp_path = WINNERS_FILE.with_suffix('.tmp')
         with open(temp_path, 'w') as f:
             json.dump(winners, f, indent=2)
         
-        # 2. Atomic replace
         temp_path.replace(WINNERS_FILE)
-        
-        # 3. Create backup
         shutil.copy2(WINNERS_FILE, BACKUP_FILE)
         
-        # 4. Log operation
         with open(LOG_FILE, 'a') as f:
             f.write(f"{datetime.now()}: Saved {len(winners)} winners\n")
             
@@ -93,38 +81,71 @@ def load_winners():
         return []
 
 # ======================
-# HOUSE MANAGEMENT
+# HOUSE MANAGEMENT (FIXED)
 # ======================
-def get_max_house_number():
-    """Dynamically find highest house number"""
-    max_num = 0
+def get_all_house_numbers():
+    """Get all valid house numbers including special cases (-1, 0)"""
+    numbers = []
     for file in os.listdir(HOUSES_DIR):
-        if file.startswith('house') and file.endswith('.png'):
+        if file.startswith('house') and (file.endswith('.png') or file.endswith('_mobile.png')):
             try:
-                num = int(file[5:-4])
-                max_num = max(max_num, num)
-            except ValueError:
+                # Extract number from filename
+                base = file.split('.')[0].replace('_mobile', '')
+                num_str = base[5:]  # Get everything after 'house'
+                
+                # Handle special cases
+                if num_str == '-1':
+                    numbers.append(-1)
+                elif num_str == '0':
+                    numbers.append(0)
+                else:
+                    numbers.append(int(num_str))
+            except:
                 continue
-    return max_num if max_num > 0 else 1
+    
+    return sorted(list(set(numbers)))
+
+def get_max_house_number():
+    """Get highest regular house number (excluding special cases)"""
+    numbers = [n for n in get_all_house_numbers() if n > 0]
+    return max(numbers) if numbers else 1
 
 def get_current_house():
+    """Get current house number including special cases"""
     try:
         return int(CURRENT_HOUSE_FILE.read_text())
     except:
         return 1
 
 def rotate_house():
+    """Rotate to next house, handling special cases"""
     current = get_current_house()
-    max_num = get_max_house_number()
-    next_num = current + 1 if current < max_num else 1
-    CURRENT_HOUSE_FILE.write_text(str(next_num))
-    return next_num
+    all_houses = get_all_house_numbers()
+    
+    if not all_houses:
+        return 1
+    
+    # Find current index
+    try:
+        current_idx = all_houses.index(current)
+    except ValueError:
+        current_idx = -1
+    
+    # Get next house (wrap around if needed)
+    next_idx = (current_idx + 1) % len(all_houses)
+    next_house = all_houses[next_idx]
+    
+    CURRENT_HOUSE_FILE.write_text(str(next_house))
+    return next_house
 
 def get_required_address():
+    """Get address for current house (including special cases)"""
     house_num = get_current_house()
     address_file = HOUSES_DIR / f"house{house_num}_address.txt"
+    
     if not address_file.exists():
         return f"Address not found for house {house_num}"
+        
     return address_file.read_text().strip()
 
 def normalize_address(address):
@@ -135,12 +156,10 @@ def normalize_address(address):
 # ======================
 @app.route('/')
 def serve_index():
-    """Serve the main index.html"""
     return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/static/<path:path>')
 def serve_static(path):
-    """Serve static files"""
     return send_from_directory(app.static_folder, path)
 
 @app.route("/submit-winner", methods=["POST"])
@@ -149,7 +168,6 @@ def submit_winner():
         data = request.json
         
         if 'address' in data:
-            # Address verification
             user_address = normalize_address(data['address'])
             required_address = normalize_address(get_required_address())
             if user_address == required_address:
@@ -161,7 +179,6 @@ def submit_winner():
             return jsonify({"status": "incorrect"})
             
         elif 'name' in data and 'mobile' in data:
-            # Winner submission
             winners = load_winners()
             house_num = get_current_house()
             
@@ -196,7 +213,7 @@ def submit_winner():
 def current_house():
     return jsonify({
         "number": get_current_house(),
-        "total": get_max_house_number(),
+        "total": len(get_all_house_numbers()),
         "address": get_required_address()
     })
 
@@ -209,7 +226,6 @@ def get_winners_endpoint():
 # ======================
 if __name__ == "__main__":
     init_storage()
-    print(f"Server initialized with {get_max_house_number()} houses")
-    print(f"Static files served from: {app.static_folder}")
-    print(f"Persistent storage at: {PERSISTENT_DIR}")
+    print(f"Available house numbers: {get_all_house_numbers()}")
+    print(f"Current house: {get_current_house()}")
     app.run(host='0.0.0.0', port=5001)
