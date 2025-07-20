@@ -128,11 +128,12 @@
       try {
         const res = await fetch('/get-current-house');
         const data = await res.json();
-        
-        // Handle special house numbers (-1, 0) in the image paths
         const houseNum = data.number;
-        document.getElementById('houseImage').src = `/static/houses/house${houseNum}.png`;
-        document.getElementById('mobileHouseImage').srcset = `/static/houses/house${houseNum}_mobile.png`;
+        
+        // Add cache-busting parameter
+        const timestamp = new Date().getTime();
+        document.getElementById('houseImage').src = `/static/houses/house${houseNum}.png?t=${timestamp}`;
+        document.getElementById('mobileHouseImage').srcset = `/static/houses/house${houseNum}_mobile.png?t=${timestamp}`;
       } catch (error) {
         console.error('Error loading current house:', error);
       }
@@ -218,7 +219,8 @@
               result.winnerData.name, 
               result.winnerData.address, 
               result.winnerData.houseNumber,
-              false
+              false,
+              new Date().toISOString()
             );
           }
           
@@ -244,26 +246,19 @@
       const grid = document.getElementById("previousHouses");
       if (!grid) return;
       
-      // Handle special house numbers (-1, 0) and regular numbers
-      let imageBase;
-      if (houseNumber === -1) {
-        imageBase = "house-1";
-      } else if (houseNumber === 0) {
-        imageBase = "house0";
-      } else {
-        imageBase = `house${houseNumber}`;
-      }
-
-      // Check if mobile version exists
-      const mobileImg = `/static/houses/${imageBase}_mobile.png`;
+      // Handle all house number cases (-1, 0, etc.)
+      const imgBase = `house${houseNumber}`;
+      const timestamp = new Date().getTime();
       
       const card = document.createElement("div");
       card.className = "winner-card relative cursor-pointer rounded-lg overflow-hidden shadow-md";
       
       card.innerHTML = `
         <picture>
-          <source media="(max-width: 640px)" srcset="${mobileImg}">
-          <img src="/static/houses/${imageBase}.png" class="w-full h-32 sm:h-40 object-cover">
+          <source media="(max-width: 640px)" srcset="/static/houses/${imgBase}_mobile.png?t=${timestamp}">
+          <img src="/static/houses/${imgBase}.png?t=${timestamp}" 
+               class="w-full h-32 sm:h-40 object-cover"
+               onerror="this.onerror=null;this.src='/static/houses/house1.png'">
         </picture>
         <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-3 text-white">
           <div class="font-bold truncate">${name}</div>
@@ -275,7 +270,7 @@
       `;
       
       card.addEventListener("click", () => {
-        document.getElementById("popupImage").src = `/static/houses/${imageBase}.png`;
+        document.getElementById("popupImage").src = `/static/houses/${imgBase}.png?t=${timestamp}`;
         document.getElementById("popupWinnerName").textContent = name;
         document.getElementById("popupAddress").textContent = address;
         document.getElementById("popupDate").textContent = isExample ? "Example winner" : 
@@ -377,6 +372,32 @@
     googleMapsScript.async = true;
     googleMapsScript.defer = true;
     document.head.appendChild(googleMapsScript);
+
+    // Debug function to check image loading
+    async function debugImages() {
+      const testImages = [
+        '/static/houses/house-1.png',
+        '/static/houses/house0.png',
+        '/static/houses/house1.png'
+      ];
+      
+      for (const url of testImages) {
+        const exists = await checkImageExists(url);
+        console.log(`${url} - ${exists ? '✅ Loaded' : '❌ Failed'}`);
+      }
+    }
+
+    function checkImageExists(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+      });
+    }
+
+    // Run debug on load
+    window.addEventListener('load', debugImages);
   </script>
 </body>
 </html>
