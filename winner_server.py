@@ -1,121 +1,80 @@
-import os
-from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from datetime import datetime
+import os
+from pathlib import Path
 import re
 import json
 
-# Initialize Flask app
 app = Flask(__name__, static_folder='static')
 CORS(app)
 
-# Configuration - Platform independent paths
-BASE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
-HOUSES_DIR = BASE_DIR / "static" / "houses"
-CURRENT_HOUSE_FILE = BASE_DIR / "static" / "current_house.txt"
-WINNERS_DIR = BASE_DIR / "winners"
-WINNERS_FILE = WINNERS_DIR / "winners.json"
+# Configuration
+HOUSES_DIR = Path("static/houses")
+CURRENT_HOUSE_FILE = Path("static/current_house.txt")
+WINNERS_FILE = Path("winners/winners.json")
 
 def init_files():
-    """Initialize required files and directories"""
-    try:
-        # Create directories if they don't exist
-        os.makedirs(HOUSES_DIR, exist_ok=True)
-        os.makedirs(WINNERS_DIR, exist_ok=True)
-        
-        # Initialize current_house.txt with default value if missing
-        if not CURRENT_HOUSE_FILE.exists():
-            with open(CURRENT_HOUSE_FILE, 'w') as f:
-                f.write("1")  # Default starting house
-        
-        # Initialize empty winners.json if missing
-        if not WINNERS_FILE.exists():
-            with open(WINNERS_FILE, 'w') as f:
-                json.dump([], f)
-                
-    except Exception as e:
-        print(f"⚠️ Error initializing files: {str(e)}")
-        raise
+    os.makedirs("winners", exist_ok=True)
+    if not CURRENT_HOUSE_FILE.exists():
+        CURRENT_HOUSE_FILE.write_text("1")  # Start with house1
+    if not WINNERS_FILE.exists():
+        with open(WINNERS_FILE, 'w') as f:
+            json.dump([], f)
+
+def get_max_house_number():
+    """Dynamically finds the highest house number available"""
+    max_num = 0
+    for file in os.listdir(HOUSES_DIR):
+        if file.startswith('house') and file.endswith('.png'):
+            try:
+                num = int(file[5:-4])  # Extract number from 'houseX.png'
+                max_num = max(max_num, num)
+            except ValueError:
+                continue
+    return max_num if max_num > 0 else 1  # Default to 1 if no houses found
 
 def get_current_house():
-    """Get current house number"""
-    try:
-        with open(CURRENT_HOUSE_FILE, 'r') as f:
-            return int(f.read().strip())
-    except (ValueError, FileNotFoundError):
-        return 1  # Fallback to house1
+    return int(CURRENT_HOUSE_FILE.read_text())
 
 def get_required_address():
-    """Get address for current house"""
     house_num = get_current_house()
     address_file = HOUSES_DIR / f"house{house_num}_address.txt"
-    
-    try:
-        with open(address_file, 'r') as f:
-            return f.read().strip()
-    except FileNotFoundError:
+    if not address_file.exists():
         return f"Address not found for house {house_num}"
+    return address_file.read_text().strip()
 
 def normalize_address(address):
-    """Standardize address format for comparison"""
     return re.sub(r'[,\s]+', ' ', address.strip()).lower()
 
 def rotate_house():
-    """Advance to next house (1-10)"""
+    """Rotates to next house, automatically wrapping when needed"""
     current_num = get_current_house()
-    next_num = current_num + 1 if current_num < 10 else 1
-    with open(CURRENT_HOUSE_FILE, 'w') as f:
-        f.write(str(next_num))
+    max_num = get_max_house_number()
+    next_num = current_num + 1 if current_num < max_num else 1
+    CURRENT_HOUSE_FILE.write_text(str(next_num))
     return next_num
 
 def load_winners():
-    """Load all winners from JSON file"""
     try:
         with open(WINNERS_FILE, 'r') as f:
             return json.load(f)
     except (json.JSONDecodeError, FileNotFoundError):
-        return []  # Return empty list if file doesn't exist or is invalid
+        return []
 
 def save_winners(winners):
-    """Save winners to JSON file"""
     with open(WINNERS_FILE, 'w') as f:
         json.dump(winners, f, indent=2)
 
-def validate_environment():
-    """Validate all required files and directories exist"""
-    print("\n=== Environment Validation ===")
-    print(f"Base Directory: {BASE_DIR}")
-    print(f"Houses Directory: {HOUSES_DIR} (Exists: {HOUSES_DIR.exists()})")
-    print(f"Current House File: {CURRENT_HOUSE_FILE} (Exists: {CURRENT_HOUSE_FILE.exists()})")
-    print(f"Winners Directory: {WINNERS_DIR} (Exists: {WINNERS_DIR.exists()})")
-    print(f"Winners File: {WINNERS_FILE} (Exists: {WINNERS_FILE.exists()})")
-    
-    print("\nCurrent House Addresses:")
-    for i in range(1, 11):
-        addr_file = HOUSES_DIR / f"house{i}_address.txt"
-        if addr_file.exists():
-            with open(addr_file, 'r') as f:
-                addr = f.read().strip()
-                print(f"House {i}: {addr if addr else '❌ EMPTY'}")
-        else:
-            print(f"House {i}: ❌ FILE MISSING")
-
-# Initialize application files
 init_files()
-validate_environment()
 
-# API Endpoints
 @app.route("/submit-winner", methods=["POST"])
 def submit_winner():
-    """Handle address submissions and winner claims"""
     data = request.json
     
-    # Address verification phase
     if 'address' in data:
         user_address = normalize_address(data['address'])
         required_address = normalize_address(get_required_address())
-        
         if user_address == required_address:
             return jsonify({
                 "status": "correct",
@@ -124,59 +83,50 @@ def submit_winner():
             })
         return jsonify({"status": "incorrect"})
     
-    # Winner details submission
     elif 'name' in data and 'mobile' in data:
         winners = load_winners()
-        solved_house = get_current_house()
-        solved_address = get_required_address()
+        current_house_num = get_current_house()
+        current_address = get_required_address()
         
-        # Create winner entry before rotating house
-        winner_entry = {
+        new_house_num = rotate_house()
+        
+        winners.append({
             "name": data.get("name", "").strip(),
             "mobile": data.get("mobile", "").strip(),
-            "address": solved_address,
-            "houseNumber": solved_house,
+            "address": current_address,
+            "houseNumber": current_house_num,
             "date": datetime.now().isoformat(),
             "prize": "$10 Woolworths Gift Card"
-        }
+        })
         
-        # Add to winners and save
-        winners.append(winner_entry)
         save_winners(winners)
-        
-        # Rotate to next house
-        new_house = rotate_house()
         
         return jsonify({
             "status": "success",
-            "next_house": new_house,
-            "winnerData": winner_entry
+            "next_house": new_house_num,
+            "winnerData": {
+                "name": data.get("name", "").strip(),
+                "address": current_address,
+                "houseNumber": current_house_num
+            }
         })
 
 @app.route("/get-current-house")
 def current_house():
-    """Get current house info"""
     return jsonify({
         "number": get_current_house(),
-        "total": 10,
+        "total": get_max_house_number(),  # Now shows actual total
         "address": get_required_address()
     })
 
 @app.route("/get-winners")
 def get_winners():
-    """Get all winners"""
     return jsonify(load_winners())
 
 @app.route('/')
 def serve():
-    """Serve main page"""
     return send_from_directory('static', 'index.html')
 
 if __name__ == "__main__":
-    # Print startup info
-    print(f"\n🚀 Starting Houseek Server")
-    print(f"Current House: {get_current_house()} - {get_required_address()}")
-    print(f"Winners Count: {len(load_winners())}")
-    
-    # Run the app
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5001)))
+    print(f"Server started with {get_max_house_number()} houses detected")
+    app.run(host='0.0.0.0', port=5001, debug=True)
