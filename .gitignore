@@ -1,9 +1,4 @@
-# .gitignore
-winners/
-guesses/
-__pycache__/
-*.pyc
-*.pyo
-.env
-*.sqlite3
-.DS_Store
+"winners/" 
+"guesses/" 
+"__pycache__/" 
+"*.pyc" 
