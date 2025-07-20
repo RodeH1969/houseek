@@ -21,6 +21,7 @@ CURRENT_HOUSE_FILE = BASE_DIR / "static/current_house.txt"
 WINNERS_FILE = PERSISTENT_DIR / "winners.json"
 BACKUP_FILE = PERSISTENT_DIR / "winners_backup.json"
 LOG_FILE = PERSISTENT_DIR / "winners.log"
+INITIAL_WINNERS = BASE_DIR / "initial_data" / "winners.json"
 
 # ======================
 # INITIALIZATION
@@ -30,21 +31,19 @@ def init_storage():
     try:
         os.makedirs(PERSISTENT_DIR, exist_ok=True)
         os.makedirs(HOUSES_DIR, exist_ok=True)
-        
-        # On Render: Copy initial files to persistent storage
+
         if os.environ.get('RENDER', False):
             if not WINNERS_FILE.exists():
-                default_winners = BASE_DIR / "winners.json"
-                if default_winners.exists():
-                    shutil.copy2(default_winners, WINNERS_FILE)
-            
+                if INITIAL_WINNERS.exists():
+                    shutil.copy2(INITIAL_WINNERS, WINNERS_FILE)
+
             if not CURRENT_HOUSE_FILE.exists():
                 CURRENT_HOUSE_FILE.write_text("1")
-        
+
         if not WINNERS_FILE.exists():
             with open(WINNERS_FILE, 'w') as f:
                 json.dump([], f)
-                
+
     except Exception as e:
         print(f"Initialization error: {str(e)}")
         raise
@@ -53,14 +52,12 @@ def init_storage():
 # HOUSE MANAGEMENT
 # ======================
 def get_all_house_numbers():
-    """Get all valid house numbers including special cases (-1, 0)"""
     numbers = []
     for file in os.listdir(HOUSES_DIR):
         if file.startswith('house') and (file.endswith('.png') or file.endswith('_mobile.png')):
             try:
                 base = file.split('.')[0].replace('_mobile', '')
-                num_str = base[5:]  # Get everything after 'house'
-                
+                num_str = base[5:]
                 if num_str == '-1':
                     numbers.append(-1)
                 elif num_str == '0':
@@ -80,24 +77,24 @@ def get_current_house():
 def rotate_house():
     current = get_current_house()
     all_houses = get_all_house_numbers()
-    
+
     if not all_houses:
         return 1
-    
+
     try:
         current_idx = all_houses.index(current)
         next_idx = (current_idx + 1) % len(all_houses)
         next_house = all_houses[next_idx]
     except ValueError:
         next_house = all_houses[0]
-    
+
     CURRENT_HOUSE_FILE.write_text(str(next_house))
     return next_house
 
 def get_required_address():
     house_num = get_current_house()
     address_file = HOUSES_DIR / f"house{house_num}_address.txt"
-    
+
     if not address_file.exists():
         return f"Address not found for house {house_num}"
     return address_file.read_text().strip()
@@ -109,37 +106,33 @@ def normalize_address(address):
 # DATA PERSISTENCE
 # ======================
 def save_winners(winners):
-    """Save winners with crash protection"""
     try:
         temp_path = WINNERS_FILE.with_suffix('.tmp')
         with open(temp_path, 'w') as f:
             json.dump(winners, f, indent=2)
-        
+
         temp_path.replace(WINNERS_FILE)
         shutil.copy2(WINNERS_FILE, BACKUP_FILE)
-        
+
         with open(LOG_FILE, 'a') as f:
             f.write(f"{datetime.now()}: Saved {len(winners)} winners\n")
-            
+
     except Exception as e:
         print(f"Failed to save winners: {str(e)}")
         raise
 
 def load_winners():
-    """Load winners with automatic recovery"""
     try:
-        if not WINNERS_FILE.exists():
-            if BACKUP_FILE.exists():
-                shutil.copy2(BACKUP_FILE, WINNERS_FILE)
-            return []
-            
-        with open(WINNERS_FILE, 'r') as f:
-            return json.load(f)
-            
+        if WINNERS_FILE.exists():
+            with open(WINNERS_FILE, 'r') as f:
+                return json.load(f)
+        elif BACKUP_FILE.exists():
+            return json.load(BACKUP_FILE)
+        elif INITIAL_WINNERS.exists():
+            return json.load(INITIAL_WINNERS)
+        return []
     except Exception as e:
         print(f"Failed to load winners: {str(e)}")
-        if BACKUP_FILE.exists():
-            return json.load(BACKUP_FILE)
         return []
 
 # ======================
@@ -157,7 +150,7 @@ def serve_static(path):
 def submit_winner():
     try:
         data = request.json
-        
+
         if 'address' in data:
             user_address = normalize_address(data['address'])
             required_address = normalize_address(get_required_address())
@@ -168,11 +161,11 @@ def submit_winner():
                     "current_address": get_required_address()
                 })
             return jsonify({"status": "incorrect"})
-            
+
         elif 'name' in data and 'mobile' in data:
             winners = load_winners()
             house_num = get_current_house()
-            
+
             winners.append({
                 "name": data["name"].strip(),
                 "mobile": data["mobile"].strip(),
@@ -182,10 +175,10 @@ def submit_winner():
                 "prize": "$10 Woolworths Gift Card",
                 "ip": request.remote_addr
             })
-            
+
             save_winners(winners)
             new_house = rotate_house()
-            
+
             return jsonify({
                 "status": "success",
                 "next_house": new_house,
@@ -195,7 +188,7 @@ def submit_winner():
                     "houseNumber": house_num
                 }
             })
-            
+
     except Exception as e:
         print(f"Winner submission error: {str(e)}")
         return jsonify({"status": "error", "message": "Submission failed"}), 500
@@ -214,7 +207,6 @@ def get_winners_endpoint():
 
 @app.route("/debug-files")
 def debug_files():
-    """Debug endpoint to verify file access"""
     try:
         return {
             "house-1_exists": os.path.exists(HOUSES_DIR / "house-1.png"),
