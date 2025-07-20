@@ -1,1 +1,36 @@
-[{"name": "Bryan", "mobile": "0412345678", "address": "48 Yallamurra Street, The Gap, QLD Australia", "houseNumber": 0, "date": "2023-01-01T00:00:00", "isExample": true}, {"name": "Greals", "mobile": "0423456789", "address": "23 Lucy Street, Milton QLD Australia", "houseNumber": -1, "date": "2023-01-01T00:00:00", "isExample": true}, {"name": "ange", "mobile": "0459754708", "address": "36 Woongarra Street The Gap QLD Australia", "houseNumber": 1, "date": "2025-07-20T15:58:59.461590"}, {"name": "Peter", "mobile": "0459754708", "address": "24 Lansbury Parade Ashgrove QLD Australia", "houseNumber": 2, "date": "2025-07-20T16:10:21.478471"}]
+[
+  {
+    "name": "Bryan",
+    "mobile": "0412345678",
+    "address": "48 Yallamurra Street, The Gap, QLD Australia",
+    "houseNumber": 0,
+    "date": "2023-01-01T00:00:00",
+    "isExample": true,
+    "prize": "$10 Woolworths Gift Card"
+  },
+  {
+    "name": "Greals",
+    "mobile": "0423456789",
+    "address": "23 Lucy Street, Milton QLD Australia",
+    "houseNumber": -1,
+    "date": "2023-01-01T00:00:00",
+    "isExample": true,
+    "prize": "$10 Woolworths Gift Card"
+  },
+  {
+    "name": "ange",
+    "mobile": "0459754708",
+    "address": "37 Yoku Road Ashgrove QLD Australia",
+    "houseNumber": 1,
+    "date": "2025-07-20T15:58:59.461590",
+    "prize": "$10 Woolworths Gift Card"
+  },
+  {
+    "name": "Peter",
+    "mobile": "0459754708",
+    "address": "36 Woongarra Street The Gap QLD Australia",
+    "houseNumber": 2,
+    "date": "2025-07-20T16:10:21.478471",
+    "prize": "$10 Woolworths Gift Card"
+  }
+]
