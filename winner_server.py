@@ -33,7 +33,8 @@ def init_storage():
         os.makedirs(HOUSES_DIR, exist_ok=True)
 
         if os.environ.get('RENDER', False):
-            if not WINNERS_FILE.exists():
+            if not WINNERS_FILE.exists() or WINNERS_FILE.stat().st_size == 0:
+                print("Copying initial winners to persistent storage...")
                 if INITIAL_WINNERS.exists():
                     shutil.copy2(INITIAL_WINNERS, WINNERS_FILE)
 
@@ -124,12 +125,16 @@ def save_winners(winners):
 def load_winners():
     try:
         if WINNERS_FILE.exists():
+            print("Loading winners from:", WINNERS_FILE)
             with open(WINNERS_FILE, 'r') as f:
                 return json.load(f)
         elif BACKUP_FILE.exists():
+            print("Loading winners from BACKUP")
             return json.load(BACKUP_FILE)
         elif INITIAL_WINNERS.exists():
+            print("Loading initial winners")
             return json.load(INITIAL_WINNERS)
+        print("No winners found.")
         return []
     except Exception as e:
         print(f"Failed to load winners: {str(e)}")
