@@ -32,11 +32,11 @@ def init_storage():
         os.makedirs(PERSISTENT_DIR, exist_ok=True)
         os.makedirs(HOUSES_DIR, exist_ok=True)
 
+        # ✅ TEMP FIX: Always overwrite winners.json from initial_data on boot
         if os.environ.get('RENDER', False):
-            if not WINNERS_FILE.exists() or WINNERS_FILE.stat().st_size == 0:
-                print("Copying initial winners to persistent storage...")
-                if INITIAL_WINNERS.exists():
-                    shutil.copy2(INITIAL_WINNERS, WINNERS_FILE)
+            print("Forcing overwrite of winners.json from initial_data...")
+            if INITIAL_WINNERS.exists():
+                shutil.copy2(INITIAL_WINNERS, WINNERS_FILE)
 
             if not CURRENT_HOUSE_FILE.exists():
                 CURRENT_HOUSE_FILE.write_text("1")
