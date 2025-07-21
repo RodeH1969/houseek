@@ -99,9 +99,7 @@
     </div>
 
     <h2 class="text-2xl font-bold mb-4 mt-8">Previous Houses & Winners</h2>
-    <div id="previousHouses" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-      <!-- Winners will be loaded here -->
-    </div>
+    <div id="previousHouses" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
   </div>
 
   <!-- Enhanced Thumbnail popup -->
@@ -123,14 +121,11 @@
   </div>
 
   <script>
-    // Load current house on page load
     async function loadCurrentHouse() {
       try {
         const res = await fetch('/get-current-house');
         const data = await res.json();
         const houseNum = data.number;
-        
-        // Add cache-busting parameter
         const timestamp = new Date().getTime();
         document.getElementById('houseImage').src = `/static/houses/house${houseNum}.png?t=${timestamp}`;
         document.getElementById('mobileHouseImage').srcset = `/static/houses/house${houseNum}_mobile.png?t=${timestamp}`;
@@ -139,7 +134,6 @@
       }
     }
 
-    // Address submission handler
     document.getElementById("guessForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const input = document.getElementById("fullAddress");
@@ -173,36 +167,27 @@
       }
     });
 
-    // Winner submission handler
     document.getElementById("submitWinner").addEventListener("click", async () => {
       const name = document.getElementById("winnerName").value.trim();
       const mobile = document.getElementById("winnerMobile").value.trim();
       const over18 = document.getElementById("ageConfirm").checked;
 
-      if (!name) {
-        alert("Please enter your name");
-        return;
-      }
-      if (!mobile) {
-        alert("Please enter your mobile number");
-        return;
-      }
-      if (!over18) {
-        alert("You must confirm you are over 18 to claim the prize");
-        return;
-      }
+      if (!name) return alert("Please enter your name");
+      if (!mobile) return alert("Please enter your mobile number");
+      if (!over18) return alert("You must confirm you are over 18 to claim the prize");
 
       try {
         const response = await fetch("/submit-winner", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             name: name,
             mobile: mobile,
-            over18: over18 
+            over18: over18,
+            triggerNext: true // ✅ THIS FIX ENABLES NEXT HOUSE
           })
         });
-        
+
         const result = await response.json();
 
         if (result.status === "success") {
@@ -212,22 +197,10 @@
               🎉 Prize claimed successfully! We'll contact you on ${mobile}.
             </div>
           `;
-          
-          // Add winner to grid
           if (result.winnerData) {
-            addWinnerCard(
-              result.winnerData.name, 
-              result.winnerData.address, 
-              result.winnerData.houseNumber,
-              false,
-              new Date().toISOString()
-            );
+            addWinnerCard(result.winnerData.name, result.winnerData.address, result.winnerData.houseNumber, false, new Date().toISOString());
           }
-          
-          // Load next house
           loadCurrentHouse();
-          
-          // Clear form
           document.getElementById("winnerName").value = "";
           document.getElementById("winnerMobile").value = "";
           document.getElementById("ageConfirm").checked = false;
@@ -241,23 +214,17 @@
       }
     });
 
-    // Fixed addWinnerCard function with proper house number handling
     function addWinnerCard(name, address, houseNumber, isExample = false, date = null) {
       const grid = document.getElementById("previousHouses");
       if (!grid) return;
-      
-      // Handle all house number cases (-1, 0, etc.)
       const imgBase = `house${houseNumber}`;
       const timestamp = new Date().getTime();
-      
       const card = document.createElement("div");
       card.className = "winner-card relative cursor-pointer rounded-lg overflow-hidden shadow-md";
-      
       card.innerHTML = `
         <picture>
           <source media="(max-width: 640px)" srcset="/static/houses/${imgBase}_mobile.png?t=${timestamp}">
-          <img src="/static/houses/${imgBase}.png?t=${timestamp}" 
-               class="w-full h-32 sm:h-40 object-cover"
+          <img src="/static/houses/${imgBase}.png?t=${timestamp}" class="w-full h-32 sm:h-40 object-cover"
                onerror="this.onerror=null;this.src='/static/houses/house1.png'">
         </picture>
         <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-3 text-white">
@@ -268,20 +235,16 @@
           </div>
         </div>
       `;
-      
       card.addEventListener("click", () => {
         document.getElementById("popupImage").src = `/static/houses/${imgBase}.png?t=${timestamp}`;
         document.getElementById("popupWinnerName").textContent = name;
         document.getElementById("popupAddress").textContent = address;
-        document.getElementById("popupDate").textContent = isExample ? "Example winner" : 
-          (date ? new Date(date).toLocaleDateString() : new Date().toLocaleDateString());
+        document.getElementById("popupDate").textContent = isExample ? "Example winner" : (date ? new Date(date).toLocaleDateString() : new Date().toLocaleDateString());
         document.getElementById("thumbnailPopup").classList.remove("hidden");
       });
-      
       grid.insertBefore(card, grid.firstChild);
     }
 
-    // Celebration functions
     function triggerBalloons() {
       const colors = ['bg-red-500', 'bg-blue-500', 'bg-yellow-400', 'bg-green-400', 'bg-purple-400'];
       for (let i = 0; i < 50; i++) {
@@ -299,16 +262,11 @@
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
       script.onload = () => {
-        confetti({
-          particleCount: 150,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
       };
       document.body.appendChild(script);
     }
 
-    // Close modal handlers
     document.getElementById("closeModal").addEventListener("click", () => {
       document.getElementById("winnerModal").classList.add("hidden");
     });
@@ -317,38 +275,22 @@
       document.getElementById("thumbnailPopup").classList.add("hidden");
     });
 
-    // Load saved winners from backend
     async function loadSavedWinners() {
       try {
         const response = await fetch("/get-winners");
         const winners = await response.json();
-        
-        // Clear existing winners (except examples if any)
         const grid = document.getElementById("previousHouses");
-        if (grid) {
-          grid.innerHTML = '';
-        }
-        
-        // Add all winners (sorted by date, newest first)
+        if (grid) grid.innerHTML = '';
         winners.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(winner => {
-          addWinnerCard(
-            winner.name, 
-            winner.address, 
-            winner.houseNumber,
-            winner.isExample || false,
-            winner.date
-          );
+          addWinnerCard(winner.name, winner.address, winner.houseNumber, winner.isExample || false, winner.date);
         });
-        
       } catch (error) {
         console.error("Error loading winners:", error);
-        // Fallback to showing just the example winners
         addWinnerCard("Bryan", "48 Yallamurra Street, The Gap", 0, true);
         addWinnerCard("Greals", "23 Lucy Street, Milton", -1, true);
       }
     }
 
-    // Google Maps Autocomplete
     function initAutocomplete() {
       const input = document.getElementById("fullAddress");
       if (window.google && window.google.maps) {
@@ -359,45 +301,17 @@
       }
     }
 
-    // Initialize on load
     document.addEventListener('DOMContentLoaded', () => {
       loadCurrentHouse();
       loadSavedWinners();
       initAutocomplete();
     });
 
-    // Google Maps API
     const googleMapsScript = document.createElement("script");
     googleMapsScript.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyBJoyvCd3fWMnk0O5wWY3pH98n2wkKCCxc&libraries=places&callback=initAutocomplete";
     googleMapsScript.async = true;
     googleMapsScript.defer = true;
     document.head.appendChild(googleMapsScript);
-
-    // Debug function to check image loading
-    async function debugImages() {
-      const testImages = [
-        '/static/houses/house-1.png',
-        '/static/houses/house0.png',
-        '/static/houses/house1.png'
-      ];
-      
-      for (const url of testImages) {
-        const exists = await checkImageExists(url);
-        console.log(`${url} - ${exists ? '✅ Loaded' : '❌ Failed'}`);
-      }
-    }
-
-    function checkImageExists(url) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        img.src = url;
-      });
-    }
-
-    // Run debug on load
-    window.addEventListener('load', debugImages);
   </script>
 </body>
 </html>
