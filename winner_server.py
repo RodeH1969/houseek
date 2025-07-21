@@ -115,5 +115,7 @@ def submit_address():
         log_attempt(guess, correct_address, current_number)
         return jsonify({"success": True, "correct": False, "currentHouse": current_number})
 
+# Entry point
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    port = int(os.environ.get("PORT", 5001))
+    app.run(debug=True, host="0.0.0.0", port=port)
